@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TASK71 - PriceTracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#f7fafc; --card:#fff; --text:#0b1220; --muted:#6b7280; --accent:#0b78d1; --success:#059669; --danger:#ef4444;
+    }
+    [data-theme='dark']{ --bg:#0b1220; --card:#0e1724; --text:#e6eef6; --muted:#9aa6b2; --accent:#63b3ff; }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Arial,sans-serif;margin:0;background:var(--bg);color:var(--text)}
+    .container{max-width:1100px;margin:20px auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{margin:0;font-size:20px}
+    .top-controls{display:flex;gap:8px;align-items:center}
+    button{background:var(--accent);color:#fff;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+    .btn-ghost{background:transparent;color:var(--accent);border:1px solid rgba(11,120,209,0.12)}
+    .grid{display:grid;grid-template-columns:1fr 350px;gap:16px;margin-top:16px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 20px rgba(2,6,23,0.04)}
+
+    /* Add product form */
+    .form-row{display:flex;gap:8px;margin-bottom:8px}
+    input,select{padding:8px;border-radius:8px;border:1px solid #d1d5db;width:100%}
+
+    /* Product list */
+    .product-list{margin-top:8px}
+    .product{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(0,0,0,0.03)}
+    .meta{font-size:13px;color:var(--muted)}
+
+    /* Charts */
+    .chart-wrap{height:220px}
+
+    /* small badges */
+    .badge{padding:4px 8px;border-radius:999px;background:rgba(11,120,209,0.12);color:var(--accent);font-weight:600}
+
+    /* notifications */
+    .notif{padding:8px;border-radius:8px;margin-bottom:8px;border-left:4px solid var(--success);background:rgba(5,150,105,0.06)}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body data-theme="light">
+  <div class="container">
+    <header>
+      <div>
+        <h1>PriceTracker</h1>
+        <div style="color:var(--muted);font-size:13px">Monitor product prices, set alerts, view historical trends, and compare stores.</div>
+      </div>
+      <div class="top-controls">
+        <button id="toggleTheme">Dark Mode</button>
+        <button id="simulatePrices" class="btn-ghost">Simulate price fetch</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <main>
+        <div class="card">
+          <h3 style="margin-top:0">Add Product to Track</h3>
+          <div class="form-row">
+            <input id="prodName" placeholder="Product name (e.g., Wireless Headphones)" />
+            <input id="prodUrl" placeholder="Store URL (optional)" />
+          </div>
+          <div class="form-row">
+            <input id="prodPrice" placeholder="Current price (number)" type="number" />
+            <input id="targetPrice" placeholder="Target alert price (number)" type="number" />
+            <select id="prodCategory">
+              <option value="Uncategorized">Uncategorized</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Fashion">Fashion</option>
+              <option value="Home">Home</option>
+            </select>
+            <select id="prodStore">
+              <option value="Store A">Store A</option>
+              <option value="Store B">Store B</option>
+              <option value="Store C">Store C</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button id="addProduct">Add product</button>
+            <button id="clearAll" class="btn-ghost">Clear all</button>
+            <div style="margin-left:auto;color:var(--muted);align-self:center;font-size:13px">Mock notifications only</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3 style="margin-top:0">Tracked Products</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <select id="filterCat"><option value="All">All categories</option><option>Electronics</option><option>Fashion</option><option>Home</option></select>
+            <select id="filterStore"><option value="All">All stores</option><option>Store A</option><option>Store B</option><option>Store C</option></select>
+            <button id="applyFilter" class="btn-ghost">Apply</button>
+          </div>
+          <div id="productList" class="product-list"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3 style="margin-top:0">Price History & Charts</h3>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:260px">
+              <div style="font-size:13px;color:var(--muted)">Selected product price history</div>
+              <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+            </div>
+            <div style="flex:1;min-width:260px">
+              <div style="font-size:13px;color:var(--muted)">Comparison between stores (mock)</div>
+              <div class="chart-wrap"><canvas id="compareChart"></canvas></div>
+            </div>
+          </div>
+          <div id="historyMeta" style="margin-top:8px;color:var(--muted);font-size:13px"></div>
+        </div>
+
+      </main>
+
+      <aside>
+        <div class="card">
+          <h3 style="margin-top:0">Notifications</h3>
+          <div id="notifications"></div>
+        </div>
+
+        
+
+        
+
+      </aside>
+    </section>
+
+    <footer>
+      <div style="color:var(--muted);font-size:13px">Built for TASK 71 — PriceTracker. Source: task71.html</div>
+    </footer>
+  </div>
+
+  <script>
+    /*
+      README / Notes:
+      - This single-file demo uses localStorage to persist tracked products.
+      - Price fetching is simulated. To use real price data, integrate store APIs or scraping services.
+      - Charts use Chart.js (CDN). No external API key required for the demo mode.
+    */
+
+    // State
+    const productKey = 'task71_products_v1';
+    let products = JSON.parse(localStorage.getItem(productKey) || '[]');
+    let selectedProductId = null;
+
+    // DOM
+    const prodName = document.getElementById('prodName');
+    const prodUrl = document.getElementById('prodUrl');
+    const prodPrice = document.getElementById('prodPrice');
+    const targetPrice = document.getElementById('targetPrice');
+    const prodCategory = document.getElementById('prodCategory');
+    const prodStore = document.getElementById('prodStore');
+    const addProductBtn = document.getElementById('addProduct');
+    const clearAllBtn = document.getElementById('clearAll');
+    const productList = document.getElementById('productList');
+    const notifications = document.getElementById('notifications');
+    const priceCtx = document.getElementById('priceChart');
+    const compareCtx = document.getElementById('compareChart');
+    const simulateBtn = document.getElementById('simulatePrices');
+    const toggleTheme = document.getElementById('toggleTheme');
+
+    // Charts
+    let priceChart = new Chart(priceCtx, {type:'line',data:{labels:[],datasets:[{label:'Price',data:[],fill:true,tension:0.3}]},options:{plugins:{legend:{display:false}}}});
+    let compareChart = new Chart(compareCtx, {type:'bar',data:{labels:[],datasets:[{label:'Store price',data:[]}]},options:{plugins:{legend:{display:false}}}});
+
+    // Helpers
+    function save(){ localStorage.setItem(productKey, JSON.stringify(products)); }
+    function uid(){ return Math.random().toString(36).slice(2,9); }
+
+    function renderList(filterCat='All', filterStore='All'){
+      productList.innerHTML = '';
+      const list = products.filter(p=> (filterCat==='All'||p.category===filterCat) && (filterStore==='All'||p.store===filterStore));
+      if(!list.length) return productList.innerHTML = '<div style="color:var(--muted)">No products tracked.</div>';
+      list.forEach(p=>{
+        const el = document.createElement('div'); el.className='product';
+        el.innerHTML = `<div>
+                        <div style="font-weight:600">${p.name} <span style="margin-left:8px;font-size:12px;color:var(--muted)">(${p.store})</span></div>
+                        <div class="meta">Current: ${p.current} — Target: ${p.target} — Category: ${p.category}</div>
+                      </div>
+                      <div style="display:flex;gap:8px;align-items:center">
+                        <button class="btn-ghost" data-id="${p.id}" onclick="viewHistory('${p.id}')">View</button>
+                        <button style="background:var(--danger)" data-id="${p.id}" onclick="removeProduct('${p.id}')">Remove</button>
+                      </div>`;
+        productList.appendChild(el);
+      });
+    }
+
+    function addProduct(){
+      const name = prodName.value.trim(); if(!name) return alert('Enter name');
+      const current = Number(prodPrice.value) || 0; const target = Number(targetPrice.value) || 0;
+      const p = {id:uid(), name, url:prodUrl.value.trim(), current, target, category:prodCategory.value, store:prodStore.value, history:[{date:new Date().toISOString(),price:current}] };
+      products.push(p); save(); renderList(); clearForm(); checkAlertsFor(p); selectProduct(p.id);
+    }
+
+    function clearForm(){ prodName.value=''; prodUrl.value=''; prodPrice.value=''; targetPrice.value=''; }
+    function removeProduct(id){ products = products.filter(p=>p.id!==id); save(); renderList(); if(selectedProductId===id){ selectedProductId=null; updateCharts(null); } }
+    function selectProduct(id){ selectedProductId=id; const p = products.find(x=>x.id===id); if(p) updateCharts(p); }
+
+    // View and load history
+    function viewHistory(id){ const p = products.find(x=>x.id===id); if(!p) return; selectProduct(id); alert('Selected '+p.name+' — chart updated.'); }
+
+    function updateCharts(p){
+      if(!p){ priceChart.data.labels=[]; priceChart.data.datasets[0].data=[]; priceChart.update(); compareChart.data.labels=[]; compareChart.data.datasets[0].data=[]; compareChart.update(); document.getElementById('historyMeta').textContent=''; return; }
+      const labels = p.history.map(h=>new Date(h.date).toLocaleDateString());
+      const data = p.history.map(h=>h.price);
+      priceChart.data.labels = labels; priceChart.data.datasets[0].data = data; priceChart.update();
+
+      // compare (mock) — generate prices for other stores for latest date
+      const stores = ['Store A','Store B','Store C'];
+      compareChart.data.labels = stores;
+      compareChart.data.datasets[0].data = stores.map(s=>{
+        if(s===p.store) return p.current; // actual
+        // mock small variation
+        return Number((p.current * (1 + (Math.random()-0.5)/10)).toFixed(2));
+      });
+      compareChart.update();
+      document.getElementById('historyMeta').textContent = `Showing ${p.history.length} historical points for ${p.name}. Latest: ${p.current}`;
+    }
+
+    // Alerts
+    function checkAlertsFor(p){ if(p.target>0 && p.current <= p.target){ notify(`Price alert: ${p.name} reached ${p.current} (target ${p.target})`); } }
+    function notify(text){ const el = document.createElement('div'); el.className='notif'; el.textContent = text; notifications.prepend(el); }
+
+    // Simulate fetching new prices for all products
+    async function simulateFetchPrices(){
+      if(!products.length) return alert('No products to simulate.');
+      simulateBtn.disabled=true; simulateBtn.textContent='Simulating...';
+      // small delay
+      await new Promise(r=>setTimeout(r,800));
+      products = products.map(p=>{
+        // random walk +-8%
+        const factor = 1 + (Math.random()-0.5)/6;
+        const newPrice = Number((Math.max(0.5, p.current * factor)).toFixed(2));
+        p.current = newPrice;
+        p.history.push({date:new Date().toISOString(), price:newPrice});
+        // keep history size reasonable
+        if(p.history.length>60) p.history.shift();
+        // check alert
+        if(p.target>0 && newPrice <= p.target){ notify(`Price drop: ${p.name} is now ${newPrice} (target ${p.target})`); }
+        return p;
+      });
+      save(); renderList(); // if selected product update chart
+      if(selectedProductId){ const p = products.find(x=>x.id===selectedProductId); if(p) updateCharts(p); }
+      simulateBtn.disabled=false; simulateBtn.textContent='Simulate price fetch';
+    }
+
+    // Theme toggle
+    toggleTheme.addEventListener('click', ()=>{
+      const el = document.body;
+      if(el.getAttribute('data-theme')==='dark'){ el.setAttribute('data-theme','light'); toggleTheme.textContent='Dark Mode'; }
+      else { el.setAttribute('data-theme','dark'); toggleTheme.textContent='Light Mode'; }
+    });
+
+    // Filters
+    document.getElementById('applyFilter').addEventListener('click', ()=>{
+      const cat = document.getElementById('filterCat').value; const store = document.getElementById('filterStore').value; renderList(cat,store);
+    });
+
+    // Buttons
+    addProductBtn.addEventListener('click', addProduct);
+    clearAllBtn.addEventListener('click', ()=>{ if(confirm('Clear all tracked products?')){ products=[]; save(); renderList(); updateCharts(null); notifications.innerHTML=''; }});
+    simulateBtn.addEventListener('click', simulateFetchPrices);
+
+    // Expose small functions to window for inline onclick handlers (not ideal but simple)
+    window.viewHistory = viewHistory; window.removeProduct = removeProduct; window.selectProduct = selectProduct;
+
+    // initial render
+    renderList();
+
+  </script>
+</body>
+</html>
